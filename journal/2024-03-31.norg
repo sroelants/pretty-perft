@@ -1,0 +1,46 @@
+So, we really want this to be async, right.
+
+That way, we can render a skeleton UI first, and fill in the details as they
+become available. I do expect ownership to become a bit of an issue? Actually,
+scratch that, I'm sure I can just `Arc<Mutex<_>>` the hell out of everything.
+Right? And since it's all immediate mode, those things should just get picked 
+up straight away?
+
+Also good in that it would mean my controls don't block...
+
+So: Main thread listens to input, renders the screen,
+second thread spawns the process and listens for IO.
+
+So, there's still two options here: spawn a thread or use async. It's entirely
+IO bound (since all the compute is happening off in a different thread, right?
+
+Actually, no, the simbelmyne stuff is happening in the engine.
+
+In that case, maybe it makes more sense for there to be a general interface 
+between the two, and I just spawn two threads, wait for them to finish and 
+report back?
+
+In that case, I spin up two long-lived threads, one that runs the simbelmyne
+computation, and one that interacts with the process without blocking the main
+UI thread.
+
+So, what if, instead, each "method" implements its own, _async_ way of dealing 
+with this stuff.
+
+So, an `Engine` struct would hold a handle to the thread that we can use to
+communicate back and forth. A `Script` would simply run the command, and
+`Simbelmyne` would also just run the perft in a separate thread.
+
+Each of them should expose a `run_perft` that either populates an `Arc<Mutex>`,
+or returns a promise. I'm undecided. A promise does sound pretty good, right?
+
+The async version sounds pretty good too, though... What would that look like?
+I spin up a thread, have it return a promise?
+
+Okay, maybe let's try the Async trait stuff again!
+
+So, any engine has to be able to return a Promise of a result 
+(`Vec<(Move, count)>`).
+
+I might still need the `Arc<Mutex>` in order for the task to have access to 
+it, though.
