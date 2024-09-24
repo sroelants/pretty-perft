@@ -133,7 +133,7 @@ fn view(state: &mut State, f: &mut Frame) {
         starting_pos: state.initial_board.to_fen(),
         current_pos: current_board.to_fen(),
         search_depth: state.depth,
-        current_depth: state.board_stack.len() - 1,
+        current_depth: state.board_stack.len(),
         total_found: state.diffs.iter().map(|d| d.found.unwrap_or(0)).sum(),
         total_expected: state.diffs.iter().map(|d| d.expected.unwrap_or(0)).sum(),
     };
@@ -242,7 +242,7 @@ fn update(state: &mut State, message: Message) -> Option<Message> {
         Message::Select => {
             let current_depth = state.board_stack.len();
 
-            if current_depth == state.depth {
+            if current_depth + 1 == state.depth {
                 return None;
             }
 
