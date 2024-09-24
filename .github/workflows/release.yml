@@ -31,9 +31,9 @@ jobs:
           mv target/x86_64-unknown-linux-musl/release/pretty-perft pretty-perft-linux-${{ matrix.exec_postfix }}
 
       - name: Upload artifacts
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v4
         with:
-          name: pretty-perft-linux
+          name: pretty-perft-linux-${{ matrix.exec_postfix }}
           path: pretty-perft-linux-${{ matrix.exec_postfix }}
 
   build-windows:
@@ -57,13 +57,13 @@ jobs:
           RUSTFLAGS: '${{ matrix.add_rustflags }} -Cinline-threshold=500'
         run: |
           rustup override set 1.79.0
-          cargo build --release -p pretty-perft
+          cargo build --release
           mv .\target\release\pretty-perft.exe pretty-perft-windows-${{ matrix.exec_postfix }}.exe
 
       - name: Upload artifacts
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v4
         with:
-          name: pretty-perft-windows
+          name: pretty-perft-windows-${{ matrix.exec_postfix }}
           path: pretty-perft-windows-${{ matrix.exec_postfix }}.exe
 
   build-macos:
@@ -95,13 +95,13 @@ jobs:
         run: |
           rustup override set 1.79.0
           rustup target add ${{ matrix.toolchain }}
-          cargo build --release --target ${{ matrix.toolchain }} -p pretty-perft
+          cargo build --release --target ${{ matrix.toolchain }}
           mv target/${{ matrix.toolchain }}/release/pretty-perft pretty-perft-macOS-${{ matrix.exec_postfix }}
 
       - name: Upload artifacts
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v4
         with:
-          name: pretty-perft-macos
+          name: pretty-perft-macOS-${{ matrix.exec_postfix }}
           path: pretty-perft-macOS-${{ matrix.exec_postfix }}
 
   release:
@@ -113,17 +113,38 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - uses: actions/download-artifact@v2
+      - uses: actions/download-artifact@v4
         with:
-          name: pretty-perft-linux
+          name: pretty-perft-linux-x86_64-v1
+      - uses: actions/download-artifact@v4
+        with:
+          name: pretty-perft-linux-x86_64-v2
+      - uses: actions/download-artifact@v4
+        with:
+          name: pretty-perft-linux-x86_64-v3
 
-      - uses: actions/download-artifact@v2
+      - uses: actions/download-artifact@v4
         with:
-          name: pretty-perft-windows
+          name: pretty-perft-windows-x86_64-v1
+      - uses: actions/download-artifact@v4
+        with:
+          name: pretty-perft-windows-x86_64-v2
+      - uses: actions/download-artifact@v4
+        with:
+          name: pretty-perft-windows-x86_64-v3
 
-      - uses: actions/download-artifact@v2
+      - uses: actions/download-artifact@v4
         with:
-          name: pretty-perft-macos
+          name: pretty-perft-macOS-x86_64-v1
+      - uses: actions/download-artifact@v4
+        with:
+          name: pretty-perft-macOS-x86_64-v2
+      - uses: actions/download-artifact@v4
+        with:
+          name: pretty-perft-macOS-x86_64-v3
+      - uses: actions/download-artifact@v4
+        with:
+          name: pretty-perft-macOS-aarch64
 
 
       - name: Install hub
