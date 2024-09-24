@@ -1,7 +1,7 @@
 # Pretty Perft
 A tool for debugging chess move generation
 
-https://github.com/sroelants/pretty-perft/raw/refs/heads/main/assets/demo.mp4
+![Demo animation](assets/demo.gif)
 
 ## How to install
 The easiest way to install the project is to make sure you have `git` and 
