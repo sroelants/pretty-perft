@@ -6,7 +6,7 @@ use ratatui::{
     style::{Style, Stylize},
 };
 
-use super::tui::Diff;
+use crate::tui::Diff;
 
 impl Diff {
     fn to_table_row(&self) -> Row {
@@ -48,18 +48,20 @@ impl Widget for DiffTable {
             })
         });
 
-        let table = Table::new(rows)
-            .header(Row::new(vec!["Move", "Found", "Expected"]).bold().blue())
-            .block(Block::new().padding(Padding::new(2, 2, 2, 2)))
-            .widths(&[
+        let table = Table::new(
+            rows,
+            &[
                 Constraint::Length(5),
                 Constraint::Length(10),
                 Constraint::Length(10),
-            ])
-            .column_spacing(3)
-            .highlight_style(Style::default().white())
-            .highlight_spacing(HighlightSpacing::Always)
-            .highlight_symbol("> ");
+            ],
+        )
+        .header(Row::new(vec!["Move", "Found", "Expected"]).bold().blue())
+        .block(Block::new().padding(Padding::new(2, 2, 2, 2)))
+        .column_spacing(3)
+        .highlight_style(Style::default().white())
+        .highlight_spacing(HighlightSpacing::Always)
+        .highlight_symbol("> ");
 
         border.render(area, buf);
 

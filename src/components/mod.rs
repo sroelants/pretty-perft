@@ -4,7 +4,8 @@ use ratatui::layout::Direction;
 use ratatui::layout::Layout;
 
 pub mod board_view;
-
+pub mod info_view;
+pub mod diff_table;
 
 pub fn centered(container: Rect, width: u16, height: u16) -> Rect {
     let width = if width > container.width { container.width } else { width };

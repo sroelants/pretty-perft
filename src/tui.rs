@@ -4,21 +4,29 @@ use std::sync::Mutex;
 
 use crossterm::event::KeyCode;
 use ratatui::prelude::Constraint;
+use ratatui::style::Color;
+use ratatui::style::Style;
+use ratatui::text::Line;
+use ratatui::text::Span;
+use ratatui::text::Text;
 use ratatui::{
     prelude::{CrosstermBackend, Direction, Layout, Rect},
     Frame, Terminal,
 };
 use simbelmyne_chess::{board::Board, movegen::moves::Move};
 
-use crate::{engine::{Executable, PerftThread}, Config};
+use crate::components::centered;
+use crate::engine::Engine;
+use crate::engine::Executable;
+use crate::engine::Simbelmyne;
+use crate::engine::PerftThread;
+use crate::Config;
 
-use super::{
+use crate::components::{
     board_view::BoardView,
     diff_table::DiffTable,
-    engine::{Engine, Simbelmyne},
     info_view::InfoView,
 };
-
 pub type PerftResult = Vec<(Move, usize)>;
 
 #[derive(Debug, Clone)]
@@ -113,7 +121,7 @@ enum Message {
 }
 
 fn view(state: &mut State, f: &mut Frame) {
-    let term_rect = f.size();
+    let term_rect = f.area();
     let layout = create_layout(term_rect);
     let current_board = state.board_stack.last().unwrap();
 
@@ -135,42 +143,58 @@ fn view(state: &mut State, f: &mut Frame) {
         total_expected: state.diffs.iter().map(|d| d.expected.unwrap_or(0)).sum(),
     };
 
+    let help = Text::from(
+        Line::from(vec![
+            Span::styled("k ", Style::new().fg(Color::Blue)),
+            Span::styled("Up, ", Style::new().fg(Color::DarkGray)),
+            Span::styled("j ", Style::new().fg(Color::Blue)),
+            Span::styled("Down, ", Style::new().fg(Color::DarkGray)),
+            Span::styled("l ", Style::new().fg(Color::Blue)),
+            Span::styled("Select, ", Style::new().fg(Color::DarkGray)),
+            Span::styled("h ", Style::new().fg(Color::Blue)),
+            Span::styled("Back, ", Style::new().fg(Color::DarkGray)),
+            Span::styled("q ", Style::new().fg(Color::Blue)),
+            Span::styled("Quit, ", Style::new().fg(Color::DarkGray)),
+        ])
+    );
+        // format!(
+        //     "{k} - {up}, {j} - {down}, {l} - {select}, {h} - {back}, {q} - {quit}",
+        //     k = "k".blue(),
+        //     up = "Up".grey(),
+        //     j = "j".blue(),
+        //     down = "Down".grey(),
+        //     l = "l".blue(),
+        //     select = "Select".grey(),
+        //     h = "h".blue(),
+        //     back = "Back".grey(),
+        //     q = "q/Esc".blue(),
+        //     quit = "Quit".grey(),
+        // )
+    // );
+
+
     f.render_widget(move_table, layout.table);
     f.render_widget(board_view, layout.board);
     f.render_widget(info_view, layout.info);
+    f.render_widget(help, layout.help);
 }
 
 struct LayoutChunks {
     table: Rect,
     board: Rect,
     info: Rect,
+    help: Rect,
 }
 
 fn create_layout(container: Rect) -> LayoutChunks {
     let app_width = 130;
-    let app_height = 42;
+    let app_height = 45;
 
-    let centered_rect = Layout::default()
-        .direction(Direction::Vertical)
-        .constraints([
-            Constraint::Min((container.height - app_height) / 2),
-            Constraint::Min(app_height),
-            Constraint::Min((container.height - app_height) / 2),
-        ])
-        .split(container)[1];
-
-    let centered_rect = Layout::default()
-        .direction(Direction::Horizontal)
-        .constraints([
-            Constraint::Min((container.width - app_width) / 2),
-            Constraint::Min(app_width),
-            Constraint::Min((container.width - app_width) / 2),
-        ])
-        .split(centered_rect)[1];
+    let centered_rect = centered(container, app_width, app_height);
 
     let sections = Layout::default()
         .direction(Direction::Vertical)
-        .constraints([Constraint::Min(32), Constraint::Min(10)])
+        .constraints([Constraint::Min(32), Constraint::Min(10), Constraint::Min(3)])
         .split(centered_rect);
 
     let top_panel = Layout::default()
@@ -179,6 +203,7 @@ fn create_layout(container: Rect) -> LayoutChunks {
         .split(sections[0]);
 
     let bottom_panel = sections[1];
+    let help_area = sections[2];
 
     let table_panel = top_panel[0];
     let board_panel = top_panel[1];
@@ -187,6 +212,7 @@ fn create_layout(container: Rect) -> LayoutChunks {
         table: table_panel,
         board: board_panel,
         info: bottom_panel,
+        help: help_area,
     }
 }
 

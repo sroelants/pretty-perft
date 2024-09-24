@@ -1,21 +1,18 @@
 use simbelmyne_chess::board::Board;
 use simbelmyne_chess::piece::Piece;
-use simbelmyne_chess::square::Square;
+use itertools::Itertools;
 use ratatui::{
-    prelude::{Buffer, Constraint, Rect},
+    prelude::{Buffer, Constraint, Direction, Layout, Rect},
     style::{Style, Stylize},
     text::Line,
     widgets::{Block, Borders, Cell, Row, Table, Widget},
 };
 
-use super::centered;
-
 pub struct BoardView {
     pub board: Board,
-    pub highlights: Vec<Square>
 }
 
-fn piece_to_cell(piece: Option<Piece>) -> Cell<'static> {
+fn square_to_cell(piece: Option<Piece>) -> Cell<'static> {
     match piece {
         Some(piece) => to_padded_cell(piece.to_string()),
         None => to_padded_cell(String::from("")),
@@ -38,15 +35,31 @@ fn to_padded_cell(val: String) -> Cell<'static> {
 
 impl Widget for BoardView {
     fn render(self, area: Rect, buf: &mut Buffer) {
-        let width = 10 * CELL_WIDTH as u16;
-        let height = 10 * CELL_HEIGHT as u16;
+        let width = 10 * CELL_WIDTH;
+        let height = 10 * CELL_HEIGHT;
 
-        let rect = centered(area, width, height);
+        let rect = Layout::new(
+            Direction::Vertical, 
+            [
+                Constraint::Min((area.height - height as u16) / 2),
+                Constraint::Min(height as u16),
+                Constraint::Min((area.height - height as u16) / 2),
+            ])
+            .split(area)[1];
 
-        let file_labels: Vec<_> = vec!["", "a", "b", "c", "d", "e", "f", "g", "h", ""]
+        let rect = Layout::new(
+            Direction::Horizontal,
+            [
+                Constraint::Min((area.width - width as u16) / 2),
+                Constraint::Min(width as u16),
+                Constraint::Min((area.width - width as u16) / 2),
+            ])
+            .split(rect)[1];
+
+        let file_labels = vec!["", "a", "b", "c", "d", "e", "f", "g", "h", ""]
             .into_iter()
             .map(|label| to_padded_cell(label.to_owned()))
-            .collect();
+            .collect_vec();
 
         let file_labels = Row::new(file_labels).height(CELL_HEIGHT as u16).dark_gray();
 
@@ -55,23 +68,24 @@ impl Widget for BoardView {
         rows.push(file_labels.clone());
 
         let mut current_rank: Vec<Cell> = Vec::new();
+        let ranks = self.board.piece_list.into_iter().chunks(8);
+        let ranks = ranks
+            .into_iter()
+            .enumerate()
+            .collect_vec()
+            .into_iter()
+            .rev();
 
-        for (i, squares) in Square::RANKS.into_iter().enumerate() {
-            let rank = 8 - i;
-            let rank_label = to_padded_cell((8 - rank).to_string()).dark_gray();
+        for (rank, squares) in ranks {
+            let rank_label = to_padded_cell((rank + 1).to_string()).dark_gray();
             current_rank.push(rank_label.clone());
 
-            for (file, square) in squares.into_iter().enumerate() {
-                let piece = self.board.get_at(square);
-                let mut cell = piece_to_cell(piece);
-
-                if (file + rank) % 2 == 1 {
-                    cell = cell.on_dark_gray();
-                }
-
-                if self.highlights.contains(&square) {
-                    cell = cell.on_light_blue()
-                }
+            for (file, square) in squares.enumerate() {
+                let cell = if (file + rank) % 2 == 0 {
+                    square_to_cell(square)
+                } else {
+                    square_to_cell(square).on_dark_gray()
+                };
 
                 current_rank.push(cell);
             }
@@ -85,12 +99,14 @@ impl Widget for BoardView {
         // Push bottom heading
         rows.push(file_labels);
 
-        let table = Table::new(rows)
-            .widths(&[Constraint::Length(CELL_WIDTH as u16); 10])
+        let table = Table::new(
+            rows,
+            &[Constraint::Length(CELL_WIDTH as u16); 10]
+        )
             .column_spacing(0);
 
         let border = Block::new()
-            .title(" Board ")
+            .title("Board")
             .borders(Borders::ALL)
             .title_style(Style::new().white())
             .border_style(Style::new().dark_gray());

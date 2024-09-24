@@ -45,14 +45,17 @@ impl Widget for InfoView {
             Cell::from(format!("{}", self.total_expected)),
         ]);
 
-        let table = Table::new(vec![
-            starting_fen,
-            current_fen,
-            search_depth,
-            current_depth,
-            total_found,
-            total_expected,
-        ])
+        let table = Table::new(
+            vec![
+                starting_fen,
+                current_fen,
+                search_depth,
+                current_depth,
+                total_found,
+                total_expected,
+            ],
+            &[Constraint::Min(20), Constraint::Min(100)],
+        )
         .column_spacing(1)
         .block(
             Block::new()
@@ -61,8 +64,7 @@ impl Widget for InfoView {
                 .title_style(Style::new().white())
                 .border_style(Style::new().dark_gray())
                 .padding(Padding::new(1, 1, 1, 1)),
-        )
-        .widths(&[Constraint::Min(20), Constraint::Min(100)]);
+        );
 
         Widget::render(table, area, buf);
     }

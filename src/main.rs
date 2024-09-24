@@ -1,11 +1,8 @@
 use clap::Parser;
 use std::path::PathBuf;
 
-mod board_view;
 mod components;
-mod diff_table;
 mod engine;
-mod info_view;
 mod perft;
 mod tui;
 

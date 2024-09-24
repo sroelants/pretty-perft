@@ -7,11 +7,11 @@
 - [✓] Off by one error in reporting panel?
 - [ ] Proper error handling
 - [ ] Error modal?
-- [ ] Make diff table a scrollable list
-- [ ] Make sure `Colored` works on Powershell/windows
+- [✓] Make diff table a scrollable list
+- [✓] Make sure `Colored` works on Powershell/windows
 
 ## Down-the-line
-- [ ] Add `?` keybinding for help modal, or something similar
+- [✓] Add `?` keybinding for help modal, or something similar
 
 ## Nice-to-haves
 - [ ] Scale board depending on the terminal size?
