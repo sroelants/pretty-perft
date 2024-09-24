@@ -3,11 +3,11 @@
       depth, and returns a split perft.
 - [ ] Proper error handling
 - [ ] Error modal?
-- [ ] Testing with other engines
+- [✓] Testing with other engines
 - [ ] Update simbelmyne-chess library
   - Does this mean I need all the same compile targets (BMI2, etc)?
-- [ ] Gracefully handle max-depth
-- [ ] Off by one error in reporting panel?
+- [✓] Gracefully handle max-depth
+- [✓] Off by one error in reporting panel?
 - [ ] Make diff table a scrollable list
 - [ ] Scale board depending on the terminal size?
 - [ ] Make sure `Colored` works on Powershell/windows
