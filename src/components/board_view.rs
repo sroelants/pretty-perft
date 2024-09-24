@@ -90,7 +90,7 @@ impl Widget for BoardView {
             .column_spacing(0);
 
         let border = Block::new()
-            .title("Board")
+            .title(" Board ")
             .borders(Borders::ALL)
             .title_style(Style::new().white())
             .border_style(Style::new().dark_gray());

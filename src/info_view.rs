@@ -56,7 +56,7 @@ impl Widget for InfoView {
         .column_spacing(1)
         .block(
             Block::new()
-                .title("Information")
+                .title(" Information ")
                 .borders(Borders::ALL)
                 .title_style(Style::new().white())
                 .border_style(Style::new().dark_gray())

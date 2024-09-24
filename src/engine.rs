@@ -1,40 +1,56 @@
-use std::process::{Child, ChildStdin, ChildStdout, Command, Stdio};
-use std::path::PathBuf;
 use std::io::{self, BufRead, BufReader, Read};
+use std::path::PathBuf;
+use std::process::{Child, ChildStdin, ChildStdout, Command, Stdio};
+use std::sync::mpsc::{channel, Receiver, Sender};
+use std::sync::{Arc, Mutex};
+use std::time::Duration;
 
+use anyhow::anyhow;
 use simbelmyne_chess::{board::Board, movegen::moves::Move};
 use std::io::Write;
-use anyhow::anyhow;
+
+use crate::perft::perft;
 
 use super::perft::perft_divide;
 
 type PerftResult = Vec<(Move, usize)>;
 
 pub trait Perft {
-    async fn perft(&mut self, board: Board, depth: usize) -> anyhow::Result<PerftResult>;
+    fn perft(
+        &mut self,
+        board: Board,
+        depth: usize,
+    ) -> anyhow::Result<PerftResult>;
 }
+
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+//
+// Simbelmyne (built-in)
+//
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 pub struct Simbelmyne {}
 
 impl Perft for Simbelmyne {
-    async fn perft(&mut self, board: Board, depth: usize) -> anyhow::Result<PerftResult> {
-        let task = tokio::task::spawn_blocking(move || {
-            let move_list: PerftResult = perft_divide(board, depth)
-                .into_iter()
-                .map(|(mv, nodes)| (mv, nodes))
-                .collect();
-
-            Ok(move_list)
-        });
-
-        task.await?
+    fn perft(
+        &mut self,
+        board: Board,
+        depth: usize,
+    ) -> anyhow::Result<PerftResult> {
+        Ok(perft_divide(board, depth))
     }
 }
 
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+//
+// Simbelmyne (external)
+//
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
 pub struct Engine {
     child: Child,
-    inp: BufReader<ChildStdout>,
-    out: ChildStdin,
+    output: BufReader<ChildStdout>,
+    input: ChildStdin,
 }
 
 impl Engine {
@@ -45,32 +61,27 @@ impl Engine {
             .stderr(Stdio::null())
             .spawn()?;
 
-        let mut inp = BufReader::new(child.stdout.take().expect("stdout not captured"));
+        let mut output = BufReader::new(child.stdout.take().expect("stdout not captured"));
+        let mut input = child.stdin.take().expect("stdin not captured");
 
-        let mut out = child.stdin.take().expect("stdin not captured");
+        writeln!(input, "uci")?;
+        input.flush()?;
 
-        // Initialize engine
-        write!(out, "uci")?;
 
-        for line in inp.by_ref().lines() {
+        for line in output.by_ref().lines() {
             if let Ok(line) = line {
+                // println!("{line}");
                 if &line == "uciok" {
                     break;
                 }
             }
         }
 
-        Ok(Engine { child, inp, out })
-    }
-}
+        // // Initialize engine
+        writeln!(input, "isready")?;
+        input.flush()?;
 
-impl Perft for Engine {
-    async fn perft(&mut self, board: Board, depth: usize) -> anyhow::Result<PerftResult> {
-
-        // Initialize engine
-        write!(self.out, "isready")?;
-
-        for line in self.inp.by_ref().lines() {
+        for line in output.by_ref().lines() {
             if let Ok(line) = line {
                 if &line == "readyok" {
                     break;
@@ -78,15 +89,34 @@ impl Perft for Engine {
             }
         }
 
-        // Set position
-        write!(self.out, "position fen {}", board.to_fen())?;
+        Ok(Engine { child, input, output })
+    }
+}
 
-        write!(self.out, "\ngo perft {}\n", depth)?;
+impl Perft for Engine {
+    fn perft(&mut self, board: Board, depth: usize) -> anyhow::Result<PerftResult> {
+        // Set position
+        writeln!(self.input, "position fen {}", board.to_fen())?;
+        self.input.flush()?;
+
+        writeln!(self.input, "isready")?;
+        self.input.flush()?;
+
+        for line in self.output.by_ref().lines() {
+            if let Ok(line) = line {
+                if &line == "readyok" {
+                    break;
+                }
+            }
+        }
+
+        writeln!(self.input, "go perft {}\n", depth)?;
+        self.input.flush()?;
 
         // parse child counts
         let mut move_list: PerftResult = Vec::new();
 
-        for line in self.inp.by_ref().lines() {
+        for line in self.output.by_ref().lines() {
             let line = line?;
 
             if line.trim().is_empty() {
@@ -115,5 +145,40 @@ impl Perft for Engine {
 impl Drop for Engine {
     fn drop(&mut self) {
         let _ = self.child.kill();
+    }
+}
+
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+//
+// PerftThread
+//
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+struct PerftRequest {
+    board: Board,
+    depth: usize,
+    result_buf: Arc<Mutex<PerftResult>>,
+}
+
+pub struct PerftThread {
+    tx: Sender<PerftRequest>
+}
+
+impl PerftThread {
+    pub fn new<T: Perft + Send + 'static>(mut runner: T) -> Self {
+        let (tx, rx) = channel::<PerftRequest>();
+
+        std::thread::spawn(move || {
+            for req in rx {
+                let result = runner.perft(req.board, req.depth).unwrap();
+                let mut buf = req.result_buf.lock().unwrap();
+                *buf = result;
+            }
+        });
+
+        Self { tx }
+    }
+
+    pub fn run(&mut self, board: Board, depth: usize, result_buf: Arc<Mutex<PerftResult>>) {
+        self.tx.send(PerftRequest { board, depth, result_buf }).unwrap();
     }
 }

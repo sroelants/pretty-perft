@@ -33,7 +33,7 @@ impl Widget for DiffTable {
     fn render(self, area: Rect, buf: &mut Buffer) {
         let border = Block::default()
             .borders(Borders::ALL)
-            .title("Moves")
+            .title(" Moves ")
             .title_alignment(Alignment::Left)
             .border_style(Style::new().dark_gray())
             .title_style(Style::new().white())

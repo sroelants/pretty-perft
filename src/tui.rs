@@ -1,22 +1,26 @@
 pub(crate) use std::collections::BTreeMap;
-use std::{path::PathBuf, sync::{Arc, Mutex}};
-
-use simbelmyne_chess::{
-    board::Board,
-    movegen::moves::Move,
+use std::{
+    path::PathBuf,
+    sync::{Arc, Mutex},
 };
+
 use crossterm::event::KeyCode;
+use ratatui::prelude::Constraint;
 use ratatui::{
     prelude::{CrosstermBackend, Direction, Layout, Rect},
     Frame, Terminal,
 };
-use ratatui::prelude::Constraint;
+use simbelmyne_chess::{board::Board, movegen::moves::Move};
+
+use crate::engine::PerftThread;
 
 use super::engine::Perft;
 
 use super::{
+    board_view::BoardView,
     diff_table::DiffTable,
-    engine::{Simbelmyne, Engine}, board_view::BoardView, info_view::InfoView,
+    engine::{Engine, Simbelmyne},
+    info_view::InfoView,
 };
 
 pub type PerftResult = Vec<(Move, usize)>;
@@ -29,10 +33,10 @@ pub struct Diff {
 }
 
 pub struct State {
-    engine: Engine,
-    simbelmyne: Simbelmyne,
-    engine_results: Arc<Mutex<PerftResult>>,
-    simbelmyne_results: Arc<Mutex<PerftResult>>,
+    engine: PerftThread,
+    simbelmyne: PerftThread,
+    expected: Arc<Mutex<PerftResult>>,
+    found: Arc<Mutex<PerftResult>>,
     diffs: Vec<Diff>,
     selected: usize,
     depth: usize,
@@ -44,14 +48,14 @@ pub struct State {
 impl State {
     fn new(depth: usize, fen: String, engine: PathBuf) -> State {
         let initial_board = fen.parse().unwrap();
-        let engine = Engine::new(engine).unwrap();
-        let simbelmyne = Simbelmyne {};
+        let simbelmyne = PerftThread::new(Simbelmyne {});
+        let engine = PerftThread::new(Engine::new(engine).unwrap());
 
         Self {
             engine,
             simbelmyne,
-            engine_results: Arc::new(Mutex::new(Vec::new())),
-            simbelmyne_results: Arc::new(Mutex::new(Vec::new())),
+            expected: Arc::new(Mutex::new(Vec::new())),
+            found: Arc::new(Mutex::new(Vec::new())),
             diffs: vec![],
             selected: 0,
             depth,
@@ -61,30 +65,46 @@ impl State {
         }
     }
 
-    fn update_diff(&mut self) -> anyhow::Result<BTreeMap<String, Diff>> {
+    fn run_perft(&mut self) {
+        let board = self.board_stack.last().unwrap();
+        let current_depth = self.board_stack.len();
+        let remaining_depth = self.depth.saturating_sub(current_depth);
+
+        self.engine.run(*board, remaining_depth, self.found.clone());
+        self.simbelmyne.run(*board, remaining_depth, self.expected.clone());
+    }
+
+    fn refresh_diff(&mut self) -> anyhow::Result<()> {
         let mut results: BTreeMap<String, Diff> = BTreeMap::new();
 
-        let our_results = self.simbelmyne_results.lock().unwrap();
-        let engine_results = self.engine_results.lock().unwrap();
+        let expected = self.found.lock().unwrap();
+        let found = self.expected.lock().unwrap();
 
         // Insert all of our moves, keyed by their algebraic string
-        for (mv, count) in engine_results.iter() {
+        for (mv, count) in found.iter() {
             results.insert(
-                mv.to_string(), 
-                Diff { mv: *mv, found: Some(*count), expected: None }
+                mv.to_string(),
+                Diff {
+                    mv: *mv,
+                    found: Some(*count),
+                    expected: None,
+                },
             );
         }
 
-        // Fill in any moves that stockfish also found
-        for (mv, count) in our_results.iter() {
-            let diff = results
-                .entry(mv.to_string())
-                .or_insert(Diff{ mv: *mv, found: None, expected: None });
+        // Fill in any moves that Simbelmyne also found
+        for (mv, count) in expected.iter() {
+            let diff = results.entry(mv.to_string()).or_insert(Diff {
+                mv: *mv,
+                found: None,
+                expected: None,
+            });
 
             diff.expected = Some(*count);
         }
 
-        Ok(results)
+        self.diffs = results.into_values().collect();
+        Ok(())
     }
 }
 
@@ -98,6 +118,7 @@ enum Message {
 }
 
 fn view(state: &mut State, f: &mut Frame) {
+
     let term_rect = f.size();
     let layout = create_layout(term_rect);
     let current_board = state.board_stack.last().unwrap();
@@ -106,6 +127,7 @@ fn view(state: &mut State, f: &mut Frame) {
         diffs: state.diffs.clone(),
         selected: state.selected,
     };
+
 
     let board_view = BoardView {
         board: *current_board,
@@ -117,11 +139,7 @@ fn view(state: &mut State, f: &mut Frame) {
         search_depth: state.depth,
         current_depth: state.board_stack.len() - 1,
         total_found: state.diffs.iter().map(|d| d.found.unwrap_or(0)).sum(),
-        total_expected: state
-            .diffs
-            .iter()
-            .map(|d| d.expected.unwrap_or(0))
-            .sum(),
+        total_expected: state.diffs.iter().map(|d| d.expected.unwrap_or(0)).sum(),
     };
 
     f.render_widget(move_table, layout.table);
@@ -136,8 +154,8 @@ struct LayoutChunks {
 }
 
 fn create_layout(container: Rect) -> LayoutChunks {
-    let app_width = 150;
-    let app_height = 50;
+    let app_width = 130;
+    let app_height = 42;
 
     let centered_rect = Layout::default()
         .direction(Direction::Vertical)
@@ -158,27 +176,26 @@ fn create_layout(container: Rect) -> LayoutChunks {
         .split(centered_rect)[1];
 
     let sections = Layout::default()
-        .direction(Direction::Horizontal)
-        .constraints([Constraint::Min(40), Constraint::Min(50)])
+        .direction(Direction::Vertical)
+        .constraints([Constraint::Min(32), Constraint::Min(10)])
         .split(centered_rect);
 
-    let left_panel = sections[0];
-    let right_panel = Layout::default()
-        .direction(Direction::Vertical)
-        .constraints([Constraint::Percentage(70), Constraint::Percentage(30)])
-        .split(sections[1]);
+    let top_panel = Layout::default()
+        .direction(Direction::Horizontal)
+        .constraints([Constraint::Min(40), Constraint::Min(50)])
+        .split(sections[0]);
 
-    let board_panel = right_panel[0];
-    let info_panel = right_panel[1];
+    let bottom_panel = sections[1];
+
+    let table_panel = top_panel[0];
+    let board_panel = top_panel[1];
 
     LayoutChunks {
-        table: left_panel,
+        table: table_panel,
         board: board_panel,
-        info: info_panel,
+        info: bottom_panel,
     }
 }
-
-
 
 fn initialize_panic_handler() {
     let original_hook = std::panic::take_hook();
@@ -210,7 +227,7 @@ fn handle_event(_: &State) -> anyhow::Result<Option<Message>> {
     Ok(Some(message))
 }
 
-async fn update(state: &mut State, message: Message) -> Option<Message> {
+fn update(state: &mut State, message: Message) -> Option<Message> {
     match message {
         Message::Up => {
             if 0 < state.selected {
@@ -233,32 +250,15 @@ async fn update(state: &mut State, message: Message) -> Option<Message> {
                 return None;
             }
 
-            let remaining_depth = state.depth.saturating_sub(current_depth);
-
             let current_board = state.board_stack.last().unwrap();
             let selected_move = state.diffs[state.selected].mv;
 
             let new_board = current_board.play_move(selected_move);
+
             state.board_stack.push(new_board);
-
-            let engine_results = state.engine.perft(new_board, remaining_depth).await.unwrap();
-            let simbelmyne_results = state.simbelmyne.perft(new_board, remaining_depth).await.unwrap();
-
-            { 
-                let mut inner = state.engine_results.lock().unwrap();
-                *inner = engine_results;
-
-                let mut inner = state.simbelmyne_results.lock().unwrap();
-                *inner = simbelmyne_results;
-            }
-
-            let new_move_list = state.update_diff()
-                .unwrap()
-                .into_values()
-                .collect();
-            state.diffs = new_move_list;
+            state.run_perft();
+            state.refresh_diff().unwrap();
             state.selected = 0;
-
         }
 
         Message::Back => {
@@ -268,12 +268,8 @@ async fn update(state: &mut State, message: Message) -> Option<Message> {
             }
 
             state.board_stack.pop();
-
-            let new_move_list = state.update_diff()
-                .unwrap()
-                .into_values()
-                .collect();
-            state.diffs = new_move_list;
+            state.run_perft();
+            state.refresh_diff().unwrap();
             state.selected = 0;
         }
     }
@@ -281,7 +277,7 @@ async fn update(state: &mut State, message: Message) -> Option<Message> {
     None
 }
 
-pub async fn init_tui(depth: usize, fen: String, engine: PathBuf) -> anyhow::Result<()> {
+pub fn init_tui(depth: usize, fen: String, engine: PathBuf) -> anyhow::Result<()> {
     initialize_panic_handler();
 
     // Startup
@@ -290,8 +286,11 @@ pub async fn init_tui(depth: usize, fen: String, engine: PathBuf) -> anyhow::Res
 
     let mut terminal = Terminal::new(CrosstermBackend::new(std::io::stderr()))?;
     let mut state = State::new(depth, fen, engine);
+    state.run_perft();
 
     loop {
+        state.refresh_diff().unwrap();
+
         // Render the current view
         terminal.draw(|f| {
             view(&mut state, f);
@@ -302,7 +301,7 @@ pub async fn init_tui(depth: usize, fen: String, engine: PathBuf) -> anyhow::Res
 
         // Process updates as long as they return a non-None message
         while current_msg.is_some() {
-            current_msg = update(&mut state, current_msg.unwrap()).await;
+            current_msg = update(&mut state, current_msg.unwrap());
         }
 
         // Exit loop if quit flag is set
