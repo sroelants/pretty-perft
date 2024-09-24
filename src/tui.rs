@@ -14,8 +14,6 @@ use simbelmyne_chess::{board::Board, movegen::moves::Move};
 
 use crate::engine::PerftThread;
 
-use super::engine::Perft;
-
 use super::{
     board_view::BoardView,
     diff_table::DiffTable,
@@ -118,7 +116,6 @@ enum Message {
 }
 
 fn view(state: &mut State, f: &mut Frame) {
-
     let term_rect = f.size();
     let layout = create_layout(term_rect);
     let current_board = state.board_stack.last().unwrap();
@@ -127,7 +124,6 @@ fn view(state: &mut State, f: &mut Frame) {
         diffs: state.diffs.clone(),
         selected: state.selected,
     };
-
 
     let board_view = BoardView {
         board: *current_board,

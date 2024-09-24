@@ -1,15 +1,12 @@
 use std::io::{self, BufRead, BufReader, Read};
 use std::path::PathBuf;
 use std::process::{Child, ChildStdin, ChildStdout, Command, Stdio};
-use std::sync::mpsc::{channel, Receiver, Sender};
+use std::sync::mpsc::{channel, Sender};
 use std::sync::{Arc, Mutex};
-use std::time::Duration;
 
 use anyhow::anyhow;
 use simbelmyne_chess::{board::Board, movegen::moves::Move};
 use std::io::Write;
-
-use crate::perft::perft;
 
 use super::perft::perft_divide;
 
