@@ -19,7 +19,10 @@ and CPU architectures will be provided under [Releases](https://github.com/sroel
 ## Usage
 `pretty-perft` supports two main modes of use
 
-### Through custom UCI command
+### Through UCI
+```sh
+$ pretty-perft --engine <engine> --fen <fen> --depth <depth>
+```
 When passed the binary of a UCI engine (with the `-e` flag), `pretty-perft` will 
 communicate with the engine over UCI, and attempt to run `go perft n`.
 
@@ -30,6 +33,9 @@ then implementing `go perft n` is an easy way to get your engine to work with
 `pretty-perft`.
 
 ### Through a stand-alone script
+```sh
+$ pretty-perft --command <perft-script> --fen <fen> --depth <depth>
+```
 If you don't have an engine yet, you _probably_ also don't have a UCI
 interpreter! For these cases, you can pass a stand-alone script or executable
 with the `-c` flag that will output the split perft result. The script will be
