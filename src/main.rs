@@ -1,6 +1,5 @@
 use clap::Parser;
 use std::path::PathBuf;
-use tui::init_tui;
 
 mod board_view;
 mod components;
@@ -12,7 +11,7 @@ mod tui;
 
 #[derive(Parser)]
 #[command(author = "Sam Roelants", version = "0.1", about = "A simple perft tool.", long_about = None)]
-struct Cli {
+struct Config {
     /// The desired search depth, in ply (half-turns)
     #[arg(short, long, default_value = "5")]
     depth: usize,
@@ -25,10 +24,12 @@ struct Cli {
     fen: String,
 
     #[arg(short, long)]
-    engine: PathBuf,
+    engine: Option<PathBuf>,
+
+    #[arg(short, long)]
+    command: Option<PathBuf>,
 }
 
 fn main() -> anyhow::Result<()> {
-    let Cli { depth, fen, engine } = Cli::parse();
-    init_tui(depth, fen, engine)
+    Config::parse().run()
 }

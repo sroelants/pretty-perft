@@ -1,8 +1,6 @@
 pub(crate) use std::collections::BTreeMap;
-use std::{
-    path::PathBuf,
-    sync::{Arc, Mutex},
-};
+use std::sync::Arc;
+use std::sync::Mutex;
 
 use crossterm::event::KeyCode;
 use ratatui::prelude::Constraint;
@@ -12,7 +10,7 @@ use ratatui::{
 };
 use simbelmyne_chess::{board::Board, movegen::moves::Move};
 
-use crate::engine::PerftThread;
+use crate::{engine::{Executable, PerftThread}, Config};
 
 use super::{
     board_view::BoardView,
@@ -44,10 +42,9 @@ pub struct State {
 }
 
 impl State {
-    fn new(depth: usize, fen: String, engine: PathBuf) -> State {
+    fn new(depth: usize, fen: String, engine: PerftThread) -> State {
         let initial_board = fen.parse().unwrap();
         let simbelmyne = PerftThread::new(Simbelmyne {});
-        let engine = PerftThread::new(Engine::new(engine).unwrap());
 
         Self {
             engine,
@@ -273,7 +270,8 @@ fn update(state: &mut State, message: Message) -> Option<Message> {
     None
 }
 
-pub fn init_tui(depth: usize, fen: String, engine: PathBuf) -> anyhow::Result<()> {
+impl Config {
+    pub fn run(&self) -> anyhow::Result<()> {
     initialize_panic_handler();
 
     // Startup
@@ -281,7 +279,16 @@ pub fn init_tui(depth: usize, fen: String, engine: PathBuf) -> anyhow::Result<()
     crossterm::execute!(std::io::stderr(), crossterm::terminal::EnterAlternateScreen)?;
 
     let mut terminal = Terminal::new(CrosstermBackend::new(std::io::stderr()))?;
-    let mut state = State::new(depth, fen, engine);
+
+    let engine = if let Some(engine) = &self.engine {
+            PerftThread::new(Engine::new(engine.to_path_buf()).unwrap())
+        } else if let Some(command) = &self.command {
+            PerftThread::new(Executable::new(command.to_path_buf()))
+        } else {
+            panic!()
+        };
+
+    let mut state = State::new(self.depth, self.fen.to_string(), engine);
     state.run_perft();
 
     loop {
@@ -310,4 +317,6 @@ pub fn init_tui(depth: usize, fen: String, engine: PathBuf) -> anyhow::Result<()
     crossterm::execute!(std::io::stderr(), crossterm::terminal::LeaveAlternateScreen)?;
     crossterm::terminal::disable_raw_mode()?;
     Ok(())
+
+    }
 }
