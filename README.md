@@ -1,9 +1,7 @@
 # Pretty Perft
 A tool for debugging chess move generation
 
-<video controls autoplay loop width="300px">
-  <source src="assets/demo.mp4" type="video/mp4" />
-</video>
+https://github.com/sroelants/pretty-perft/raw/refs/heads/main/assets/demo.mp4
 
 ## How to install
 The easiest way to install the project is to make sure you have `git` and 
