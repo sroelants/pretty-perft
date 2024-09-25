@@ -180,12 +180,12 @@ fn create_layout(container: Rect) -> LayoutChunks {
 
     let sections = Layout::default()
         .direction(Direction::Vertical)
-        .constraints([Constraint::Min(32), Constraint::Min(10), Constraint::Min(3)])
+        .constraints([Constraint::Max(34), Constraint::Max(10), Constraint::Max(1)])
         .split(centered_rect);
 
     let top_panel = Layout::default()
         .direction(Direction::Horizontal)
-        .constraints([Constraint::Min(40), Constraint::Min(50)])
+        .constraints([Constraint::Max(35), Constraint::Max(130)])
         .split(sections[0]);
 
     let bottom_panel = sections[1];
