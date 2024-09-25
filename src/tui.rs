@@ -132,6 +132,7 @@ fn view(state: &mut State, f: &mut Frame) {
 
     let board_view = BoardView {
         board: *current_board,
+        highlight: state.diffs.get(state.selected).map(|diff| diff.mv),
     };
 
     let info_view = InfoView {

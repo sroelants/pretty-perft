@@ -1,4 +1,6 @@
-use simbelmyne_chess::board::Board;
+use simbelmyne_chess::constants::LIGHT_SQUARES;
+use simbelmyne_chess::square::Square;
+use simbelmyne_chess::{board::Board, movegen::moves::Move};
 use simbelmyne_chess::piece::Piece;
 use itertools::Itertools;
 use ratatui::{
@@ -10,6 +12,7 @@ use ratatui::{
 
 pub struct BoardView {
     pub board: Board,
+    pub highlight: Option<Move>,
 }
 
 fn square_to_cell(piece: Option<Piece>) -> Cell<'static> {
@@ -80,11 +83,17 @@ impl Widget for BoardView {
             let rank_label = to_padded_cell((rank + 1).to_string()).dark_gray();
             current_rank.push(rank_label.clone());
 
-            for (file, square) in squares.enumerate() {
-                let cell = if (file + rank) % 2 == 0 {
-                    square_to_cell(square)
+            for (file, piece) in squares.enumerate() {
+                let sq = Square::from(8 * rank + file);
+
+                let cell = if self.highlight.is_some_and(|mv| sq == mv.src()) {
+                    square_to_cell(piece).on_blue()
+                } else if self.highlight.is_some_and(|mv| sq == mv.tgt()) {
+                    square_to_cell(piece).on_blue()
+                } else if LIGHT_SQUARES.contains(sq) {
+                    square_to_cell(piece)
                 } else {
-                    square_to_cell(square).on_dark_gray()
+                    square_to_cell(piece).on_dark_gray()
                 };
 
                 current_rank.push(cell);
