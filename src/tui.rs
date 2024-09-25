@@ -16,10 +16,10 @@ use ratatui::{
 use simbelmyne_chess::{board::Board, movegen::moves::Move};
 
 use crate::components::centered;
-use crate::engine::Engine;
-use crate::engine::Executable;
-use crate::engine::Simbelmyne;
-use crate::engine::PerftThread;
+use crate::backends::Engine;
+use crate::backends::Executable;
+use crate::backends::Simbelmyne;
+use crate::backends::PerftThread;
 use crate::Config;
 
 use crate::components::{

@@ -2,7 +2,7 @@ use clap::Parser;
 use std::path::PathBuf;
 
 mod components;
-mod engine;
+mod backends;
 mod perft;
 mod tui;
 
