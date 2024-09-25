@@ -101,7 +101,7 @@ fn perft(board: Board, depth: usize) -> u32 {
   let mut count = 0;
   
   for mv in board.legal_moves() {
-    count += perft(board, depth - 1)
+    count += perft(board.apply_move(mv), depth - 1)
   }
   
   return count;
