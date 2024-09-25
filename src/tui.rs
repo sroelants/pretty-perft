@@ -158,21 +158,6 @@ fn view(state: &mut State, f: &mut Frame) {
             Span::styled("Quit, ", Style::new().fg(Color::DarkGray)),
         ])
     );
-        // format!(
-        //     "{k} - {up}, {j} - {down}, {l} - {select}, {h} - {back}, {q} - {quit}",
-        //     k = "k".blue(),
-        //     up = "Up".grey(),
-        //     j = "j".blue(),
-        //     down = "Down".grey(),
-        //     l = "l".blue(),
-        //     select = "Select".grey(),
-        //     h = "h".blue(),
-        //     back = "Back".grey(),
-        //     q = "q/Esc".blue(),
-        //     quit = "Quit".grey(),
-        // )
-    // );
-
 
     f.render_widget(move_table, layout.table);
     f.render_widget(board_view, layout.board);
