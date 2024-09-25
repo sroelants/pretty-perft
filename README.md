@@ -6,6 +6,7 @@ A tool for debugging chess move generation
 ## How to install
 The easiest way to install the project is to make sure you have `git` and 
 `cargo` installed.
+
 ```sh
 $ git clone https://github.com/sroelants/pretty-perft
 
@@ -13,8 +14,8 @@ $ cd pretty-perft
 $ cargo build --release
 ```
 
-Once pretty-perft is ready for a pre-release, binaries for all major platforms
-and CPU architectures will be provided under [Releases](https://github.com/sroelants/pretty-perft/releases).
+There are pre-built executables available for all major platforms under
+[Releases](https://github.com/sroelants/pretty-perft/releases).
 
 ## Usage
 `pretty-perft` supports two main modes of use
